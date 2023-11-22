@@ -22,41 +22,44 @@ class GetAllUsersSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class CreateUserSerializer(serializers.ModelSerializer):
+class SignupSerializer(serializers.ModelSerializer):
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    password = serializers.CharField()
+    password2 = serializers.CharField()
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password')
+        fields = ('id', 'username', 'email', 'password', 'password2')
 
-    def validate(self, data):
-        username = data.get('username')
-        # email = data.get('email')
-        password = data.get('password')
-        username_errors = list()
-        email_errors = list()
-        password_errors = list()
-
+    def validate_username(self, value):
+        username = value
         errors = dict()
-        try:
-            validate_password(
-                password=password,
-                user=None,
-                password_validators=None)
-        except exceptions.ValidationError as e:
-            password_errors += list(e.messages)
+        username_errors = list()
+
+        if User.objects.filter(username=username).exists():
+            username_errors += [_("This username is already associated with an existing account."), ]
 
         if "@" in username:
             username_errors += [_("A username cannot include the symbol '@'."), ]
 
         if username_errors:
-            errors["username"] = username_errors
-        if password_errors:
-            errors["password"] = password_errors
-        if email_errors:
-            errors["email"] = email_errors
-
-        if errors:
+            errors = username_errors
             raise serializers.ValidationError(errors)
+        return value
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError(str(exc))
+        return value
+
+    def validate(self, data):
+        if data['password'] != data['password2']:
+            raise serializers.ValidationError(_("The passwords you entered do not match."))
         return data
+
 
 
 class PasswordsSerializer(serializers.Serializer):
@@ -124,42 +127,6 @@ class LoginSerializer(serializers.Serializer):
             if not User.objects.filter(username=credential).exists():
                 errors['detail'] = _("Incorrect credentials.")
 
-        if errors:
-            raise serializers.ValidationError(errors)
-        return data
-
-
-class CredentialJWTokenSerializer(serializers.Serializer):
-    credential = serializers.CharField()
-    jwt_token = serializers.CharField()
-
-    def validate(self, data):
-        credential = data.get('credential')
-        jwt_token = data.get('jwt_token')
-        errors = dict()
-        credential_errors = list()
-        jwt_errors = list()
-        user = None
-        if "@" in credential:
-            if not User.objects.filter(email=credential).exists():
-                credential_errors += [_("Email not found"), ]
-            else:
-                user = User.objects.filter(email=credential).first()
-        else:
-            if not User.objects.filter(username=credential).exists():
-                credential_errors += [_("User not found"), ]
-            else:
-                user = User.objects.filter(username=credential).first()
-        if credential_errors:
-            errors['credential'] = credential_errors
-
-        jwt_user = User.verify_jwt_token(jwt_token)
-        if (user is not None and jwt_user is not None) and user != jwt_user:
-            jwt_errors += [_("The given token does not match the user")]
-        if User.verify_jwt_token(jwt_token) is None:
-            jwt_errors += [_("jwt token invalid or expired")]
-        if jwt_errors:
-            errors['jwt_token'] = jwt_errors
         if errors:
             raise serializers.ValidationError(errors)
         return data

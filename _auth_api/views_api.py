@@ -1,7 +1,9 @@
 
+from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.http import Http404
 
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
@@ -16,27 +18,23 @@ from .utils import (
     send_confirm_email,
     send_password_reset_email,
 )
+
 from .serializers import (
     LoginSerializer,
-    CredentialJWTokenSerializer,
+    SignupSerializer,
     UserInfosSerializer,
     GetAllUsersSerializer,
-    CreateUserSerializer,
     PasswordsSerializer,
     EmailSerializer,
     UsernameSerializer,
     )
 
+from .models_email import EmailAddress
+
 # WIP
+# reset password
 
 User = get_user_model()
-
-# Signup
-# login
-# logout
-
-# reset password
-# resend confirmation email / change email
 
 
 class Signup(APIView):
@@ -45,12 +43,22 @@ class Signup(APIView):
     @transaction.atomic
     def post(self, request, format=None):
         """Create a new user"""
-        serializer = CreateUserSerializer(data=request.data)
+        serializer = SignupSerializer(data=request.data)
         message = ""
         if serializer.is_valid():
-            user = serializer.save()
+            user = User.objects.create(
+                username=request.data['username'],
+                email=request.data['email'],
+            )
             user.set_password(request.data['password'])
             user.save()
+            if not EmailAddress.objects.filter(user=user, email=user.email).exists():
+                EmailAddress.objects.create(
+                    user=user,
+                    email=user.email,
+                    verified=False,
+                    primary=True
+                )
             message = _(
                 "Please check your inbox at '%(email)s' to confirm your account. "
                 ) % {'email': user.email}
@@ -69,7 +77,6 @@ class Signup(APIView):
             raise ValidationError(error, code='authorization')
 
 
-
 class LoginWithAuthToken(ObtainAuthToken):
 
     def post(self, request, *args, **kwargs):
@@ -86,11 +93,15 @@ class LoginWithAuthToken(ObtainAuthToken):
         if user:
             match = user.check_password(password)
         if match:
-            if not user.is_confirmed and not user.is_superuser:
-                msg = _(
-                    'Your account has not been confirmed yet. '
-                    'Please check your inbox for a confirmation link.')
-                raise ValidationError({'detail': [msg]}, code='authorization')
+            email = EmailAddress.objects.filter(user=user, email=user.email).first()
+            if not email and not user.is_superuser:
+                raise Http404
+            if not user.is_superuser:
+                if not email.verified:
+                    msg = _(
+                        'Your account has not been confirmed yet. '
+                        'Please check your inbox for a confirmation link.')
+                    raise ValidationError({'detail': [msg]}, code='authorization')
             token, created = Token.objects.get_or_create(user=user)
             if hasattr(user, 'last_login'):
                 user.last_login = timezone.now()
@@ -107,32 +118,8 @@ class LoginWithAuthToken(ObtainAuthToken):
         raise ValidationError({'detail': [msg]}, code='authorization')
 
 
-
 @transaction.atomic
 @api_view(['POST'])
-@permission_classes([AllowAny])
-def email_confirm_email_resend(request):
-    """Resends an email to the user to confirm his account"""
-    credential = request.data.get('credential')
-    if not credential:
-        error = _("no credential provided")
-        raise ValidationError({"detail": [error]}, code='authorization')
-    if "@" in credential:
-        user = User.objects.filter(email=credential).first()
-    else:
-        user = User.objects.filter(username=credential).first()
-    if user:
-        if user.is_confirmed:
-            error = _("Your account is already confirmed.")
-            raise ValidationError({"detail": [error]}, code='authorization')
-        send_confirm_email(request, user)
-        return Response({'success': _('Email sent for password reset')})
-    error = "Invalid credential"
-    raise ValidationError({"detail": [error]}, code='authorization')
-
-
-@transaction.atomic
-@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def token_logout(request):
     """Destroys the auth token"""
@@ -140,24 +127,48 @@ def token_logout(request):
     return Response({'success': _('Logged out.')})
 
 
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def password_request_reset(request):
-    """Sends an email to the user with a link to reset their password"""
-    credential = request.data.get('credential')
-    if not credential:
-        error = _("No credentials were provided")
-        raise ValidationError({"detail": [error]}, code='authorization')
-    if "@" in credential:
-        user = User.objects.filter(email=credential).first()
-    else:
-        user = User.objects.filter(username=credential).first()
-    if user:
-        send_password_reset_email(request, user)
-        return Response({'success': _("Email sent for password reset")})
-    error = _("Invalid credential")
-    raise ValidationError({"detail": [error]}, code='authorization')
+# @transaction.atomic
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def email_confirm_email_resend(request):
+#     """Resends an email to the user to confirm his account"""
+#     credential = request.data.get('credential')
+#     if not credential:
+#         error = _("no credential provided")
+#         raise ValidationError({"detail": [error]}, code='authorization')
+#     if "@" in credential:
+#         user = User.objects.filter(email=credential).first()
+#     else:
+#         user = User.objects.filter(username=credential).first()
+#     user_email = get_object_or_404(EmailAddress, user=user, email=user.email)
+#     if user_email:
+#         if user_email.verified:
+#             error = _("Your account is already confirmed.")
+#             raise ValidationError({"detail": [error]}, code='authorization')
+#         send_confirm_email(request, user)
+#         return Response({'success': _('Email sent for password reset')})
+#     error = "Invalid credential"
+#     raise ValidationError({"detail": [error]}, code='authorization')
+
+
+# @transaction.atomic
+# @api_view(['POST'])
+# @permission_classes([AllowAny])
+# def password_request_reset(request):
+#     """Sends an email to the user with a link to reset their password"""
+#     credential = request.data.get('credential')
+#     if not credential:
+#         error = _("No credentials were provided")
+#         raise ValidationError({"detail": [error]}, code='authorization')
+#     if "@" in credential:
+#         user = User.objects.filter(email=credential).first()
+#     else:
+#         user = User.objects.filter(username=credential).first()
+#     if user:
+#         send_password_reset_email(request, user)
+#         return Response({'success': _("Email sent for password reset")})
+#     error = _("Invalid credential")
+#     raise ValidationError({"detail": [error]}, code='authorization')
 
 
 
@@ -169,58 +180,58 @@ def get_users_all(request):
     return Response(serializer.data)
 
 
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def password_change(request):
-    """Changes the user's password"""
-    serializer = PasswordsSerializer(data=request.data)
-    if serializer.is_valid():
-        user = request.user
-        password = request.data.get('password')
-        user.set_password(password)
-        user.save()
-        return Response({'success': _('Password successfully changed.')})
-    error = serializer.errors
-    raise ValidationError(error, code='authorization')
+# @transaction.atomic
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def password_change(request):
+#     """Changes the user's password"""
+#     serializer = PasswordsSerializer(data=request.data)
+#     if serializer.is_valid():
+#         user = request.user
+#         password = request.data.get('password')
+#         user.set_password(password)
+#         user.save()
+#         return Response({'success': _('Password successfully changed.')})
+#     error = serializer.errors
+#     raise ValidationError(error, code='authorization')
 
 
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def email_request_change(request):
-    user = request.user
-    serializer = EmailSerializer(data=request.data)
-    if serializer.is_valid():
-        new_email = request.data.get('email')
-        user.new_email = new_email
-        user.save()
-        send_confirm_email(request, user, new_email=True)
+# @transaction.atomic
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def email_request_change(request):
+#     user = request.user
+#     serializer = EmailSerializer(data=request.data)
+#     if serializer.is_valid():
+#         new_email = request.data.get('email')
+#         user.new_email = new_email
+#         user.save()
+#         send_confirm_email(request, user, new_email=True)
 
-        return Response(
-            {'success': _(
-                "New email saved, check your inbox at '%(new_email)s' "
-                "to activate it."
-            ) % {'new_email': new_email}}
-        )
-    error = serializer.errors
-    raise ValidationError(error, code='authorization')
+#         return Response(
+#             {'success': _(
+#                 "New email saved, check your inbox at '%(new_email)s' "
+#                 "to activate it."
+#             ) % {'new_email': new_email}}
+#         )
+#     error = serializer.errors
+#     raise ValidationError(error, code='authorization')
 
 
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def username_change(request):
-    """Changes the user's username"""
-    serializer = UsernameSerializer(data=request.data)
-    if serializer.is_valid():
-        user = request.user
-        username = request.data.get('username')
-        user.username = username
-        user.save()
-        return Response({'success': _('Username successfully changed.')})
-    error = serializer.errors
-    raise ValidationError(error, code='authorization')
+# @transaction.atomic
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def username_change(request):
+#     """Changes the user's username"""
+#     serializer = UsernameSerializer(data=request.data)
+#     if serializer.is_valid():
+#         user = request.user
+#         username = request.data.get('username')
+#         user.username = username
+#         user.save()
+#         return Response({'success': _('Username successfully changed.')})
+#     error = serializer.errors
+#     raise ValidationError(error, code='authorization')
 
 
 @api_view(['GET'])

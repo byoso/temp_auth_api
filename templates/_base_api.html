@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- favicon example -->
+  <link rel="icon" href="https://i.goopics.net/lhw9s2.png">
+  <title>Demo</title>
+  <!-- bulma -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <!-- vue.js 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- markdown converter to html (cdn) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Axios -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+
+<div class="container" id="app">
+
+  <nav class="navbar" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+      <div class="navbar-item title">
+        Demo SPA
+      </div>
+
+      <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+      </a>
+    </div>
+
+    <div id="navbarBasicExample" class="navbar-menu">
+      <div class="navbar-start">
+
+      </div>
+
+      <div class="navbar-end">
+        <div class="navbar-item" v-if="loggedIn">
+          [[ user.username]]
+        </div>
+
+        <div class="navbar-item">
+          <div class="buttons">
+            <a class="button is-primary" v-if="!loggedIn" @click="signupModal=true">
+              <strong>Sign up</strong>
+            </a>
+            <a class="button is-light" @click="loginModal=true" v-if="!loggedIn">
+              Log in
+            </a>
+            <div class="button is-light is-warning" v-if="loggedIn" @click="logout">
+              Log out
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- modals -->
+  <!-- Login modal -->
+  <div class="modal" :class="{'is-active': loginModal}">
+    <div class="modal-background" @click="loginModal=false"></div>
+    <div class="modal-content">
+      <div class="box">
+        <h1 class="title">Log in</h1>
+          <div class="field">
+            <label class="label">Username or email address</label>
+            <div class="control">
+              <input class="input" type="text" name="credential" placeholder="Username or e-mail" v-model="credential">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Password</label>
+            <div class="control">
+              <input class="input" type="password" name="password" placeholder="Password"  v-model="password">
+            </div>
+          </div>
+          <br>
+          <a href="">
+            Forgotten password ?
+          </a>
+          <br>
+          <a href="auth/change_email/">
+            Change my email address / resend a confirmation email
+          </a>
+          <br>
+          <div class="field">
+            <div class="control">
+              <button class="button is-primary" @click="login">Login</button>
+            </div>
+          </div>
+      </div>
+    </div>
+    <button class="modal-close is-large" aria-label="close" @click="loginModal=false"></button>
+  </div>
+
+  <!-- Signup modal -->
+
+  <div class="modal" :class="{'is-active': signupModal}">
+    <div class="modal-background" @click="closeSignupModal"></div>
+    <div class="modal-content">
+      <div class="box">
+        <h1 class="title">Sign up</h1>
+          <div class="field">
+            <label class="label">Username</label>
+            <input class="input" type="text" name="username" placeholder="Username or e-mail" v-model="signup_username">
+            <label for="" class="label">Email</label>
+            <input type="email" class="input" name="email" placeholder="email" v-model="signup_email">
+            <label class="label">Password</label>
+            <input class="input" type="password" name="password" placeholder="Password"  v-model="signup_password">
+            <label class="label">Confirm your password</label>
+            <input class="input" type="password" name="password2" placeholder="Password"  v-model="signup_password2">
+          </div>
+
+          <div class="field">
+          </div>
+          <br>
+          <div class="field">
+            <div class="control">
+              <button class="button is-primary" @click="signup">Sign up</button>
+            </div>
+          </div>
+          <div>
+            <p class="notification is-success" v-if="signup_message !== ''">
+              [[ signup_message]]
+            </p>
+            <p v-if="signup_errors.length">
+              <ul>
+                <li class="notification is-danger" v-for="error in signup_errors"> [[ error[0] ]]</li>
+              </ul>
+            </p>
+          </div>
+      </div>
+    </div>
+    <button class="modal-close is-large" aria-label="close" @click="closeSignupModal"></button>
+  </div>
+
+
+
+</body>
+
+<script>
+  const { createApp } = Vue
+
+  createApp({
+    delimiters: ['[[', ']]'],
+    data() {
+      return {
+        token: '',
+        user: null,
+        loggedIn: false,
+        loginModal: false,
+        signupModal: false,
+        credential : '',
+        password: '',
+        signup_username: '',
+        signup_email: '',
+        signup_password: '',
+        signup_password2: '',
+        signup_message: '',
+        signup_errors: [],
+      }
+    },
+    computed: {
+    },
+    methods: {
+      closeSignupModal() {
+        this.signupModal = false
+        this.initialize_signup()
+      },
+      initialize_signup() {
+        this.signup_email = ''
+        this.signup_username = ''
+        this.signup_password = ''
+        this.signup_password2 = ''
+        this.signup_message = ''
+        this.signup_errors = []
+      },
+      login() {
+        console.log("log in with: ", this.credential)
+        axios({
+          method: 'post',
+          url: 'auth/api_login/',
+          data: {
+            credential: this.credential,
+            password: this.password,
+          }
+        }).then((response) => {
+          console.log(response.data)
+          this.token = response.data.auth_token
+          this.user = response.data.user
+          this.loggedIn = true
+        }).catch((error) => {
+          console.log(error)
+        })
+        this.loginModal = false
+      },
+      logout() {
+        console.log("log out, token: ", this.token)
+        axios({
+          method: 'post',
+          url: 'auth/api_logout/',
+          headers: {
+            'Authorization': `Token ${this.token}`
+          },
+          data: {}
+        }).then((response) => {
+          console.log(response.data)
+          this.token = ''
+          this.user = null
+          this.loggedIn = false
+        }).catch((error) => {
+          console.log(error)
+        })
+      },
+      signup() {
+        console.log("sign up with: ", this.signup_username, this.signup_email, this.signup_password, this.signup_password2)
+        axios({
+          method: 'post',
+          url: 'auth/api_signup/',
+          data: {
+            username: this.signup_username,
+            email: this.signup_email,
+            password: this.signup_password,
+            password2: this.signup_password2,
+          }
+        }).then(response => {
+          console.log(response.data)
+          this.signup_message = response.data.message
+        }).catch(error => {
+          console.log(error)
+          this.signup_errors = error.response.data
+        })
+      }
+    },
+  }).mount('#app')
+</script>
+
+<style scoped>
+
+
+</style>
+
+</html>
