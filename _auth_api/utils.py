@@ -12,6 +12,7 @@ import jwt
 from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
 
 from .config import _AUTH_API as conf
+from .models_email import EmailAddress
 
 User = get_user_model()
 
@@ -68,7 +69,7 @@ def dsa_send_mail(*args, **kwargs):
 def send_password_reset_email(request, user):
     token = write_jwt_token(user, expires_in=EMAIL_VALID_TIME, action="reset_password")
     domain = request.get_host()
-    link = f"http://{domain}/{PREFIX}reset_password/{token}"
+    link = f"http://{domain}/{PREFIX}password_reset/{token}"
     context = {
         'user': user,
         'link': link,
@@ -86,7 +87,9 @@ def send_password_reset_email(request, user):
     )
 
 
-def send_confirm_email(request, user, new_email=False):
+def send_confirm_email(request, user, email=None):
+    if email == None:
+        raise ValueError("email must be provided")
     token = write_jwt_token(user, expires_in=EMAIL_VALID_TIME, action="confirm_email")
     domain = request.get_host()
     link = f"http://{domain}/{PREFIX}confirm_email/{token}"
@@ -98,10 +101,6 @@ def send_confirm_email(request, user, new_email=False):
 
     msg_text = get_template("_auth_api/emails/confirm_email.txt")
 
-    if new_email:
-        email = user.new_email
-    else:
-        email = user.email
 
     dsa_send_mail(
         'Confirm your new email',
@@ -110,3 +109,10 @@ def send_confirm_email(request, user, new_email=False):
         [email],
         fail_silently=False,
     )
+
+
+def user_email_is_verified(user, email):
+    verified_email = EmailAddress.objects.filter(user=user, email=email, verified=True).first()
+    if verified_email:
+        return True
+    return False

@@ -1,18 +1,41 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+
+from .utils import gettext_lazy as _
 
 
-class ChangeEmailForm(forms.ModelForm):
-    class Meta:
-        model = get_user_model()
-        fields = ['username', 'password', 'email',]
+User = get_user_model()
+
+
+class ChangeEmailForm(forms.Form):
+    username = forms.CharField()
+    password = forms.CharField()
+    email = forms.EmailField()
 
     def clean(self):
-        cleaned_data = super().clean()
+        cleaned_data = self.cleaned_data
         password = cleaned_data.get('password')
         username = cleaned_data.get('username')
-        self.instance = get_user_model().objects.filter(username=username).first()
-        print("==== instance: ", self.instance)
-        if not self.instance or not self.instance.check_password(password):
-            raise forms.ValidationError('Wrong credentials.')
+        user = User.objects.filter(username=username).first()
+        if not user or not user.check_password(password):
+            raise forms.ValidationError(_('Wrong credentials.'))
         return cleaned_data
+
+
+class PasswordResetForm(forms.Form):
+    password = forms.CharField()
+    password2 = forms.CharField()
+
+    def clean_password2(self):
+        cleaned_data = self.cleaned_data
+        password = cleaned_data.get('password')
+        password2 = cleaned_data.get('password2')
+        if password and password != password2:
+            raise forms.ValidationError(_('The passwords you entered do not match.'))
+        return cleaned_data
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        validate_password(password)
+        return password

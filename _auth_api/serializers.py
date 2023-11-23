@@ -5,6 +5,7 @@ from .utils import gettext_lazy as _
 
 from rest_framework import serializers
 
+from .models_email import EmailAddress
 ### WIP
 
 User = get_user_model()
@@ -13,8 +14,21 @@ User = get_user_model()
 class UserInfosSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        exclude = ['password', ]
-
+        fields = [
+            "id",
+            "is_superuser",
+            "username",
+            "email",
+            "is_staff",
+            "is_active",
+            "groups",
+            "user_permissions",
+            # comment if not usefull:
+            "first_name",
+            "last_name",
+            "last_login",
+            "date_joined",
+        ]
 
 class GetAllUsersSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,56 +75,6 @@ class SignupSerializer(serializers.ModelSerializer):
         return data
 
 
-
-class PasswordsSerializer(serializers.Serializer):
-    password = serializers.CharField(
-        write_only=True
-    )
-    password2 = serializers.CharField(
-        write_only=True
-    )
-
-    def validate(self, data):
-        password = data.get('password')
-        password2 = data.get('password2')
-        errors = dict()
-        password_errors = list()
-
-        if password != password2:
-            password_errors += [_("The passwords you entered do not match."), ]
-
-        try:
-            validate_password(
-                password=password,
-                user=None,
-                password_validators=None)
-
-        except exceptions.ValidationError as e:
-            password_errors += list(e.messages)
-
-        if password_errors:
-            errors['password'] = password_errors
-            raise serializers.ValidationError(errors)
-        return data
-
-
-class EmailSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-
-    def validate(self, data):
-        email = data.get('email')
-        errors = dict()
-        email_errors = list()
-
-        if User.objects.filter(email=email).exists():
-            email_errors += [_("This email is already associated with an existing account."), ]
-
-        if email_errors:
-            errors['email'] = email_errors
-            raise serializers.ValidationError(errors)
-        return data
-
-
 class LoginSerializer(serializers.Serializer):
     credential = serializers.CharField()
     password = serializers.CharField()
@@ -120,15 +84,39 @@ class LoginSerializer(serializers.Serializer):
         password = data.get('password')
         errors = dict()
 
+        if not credential or not password:
+            raise serializers.ValidationError(_("Please enter both a username/email and a password."))
+
         if "@" in credential:
-            if not User.objects.filter(email=credential).exists():
-                errors['detail'] = _("Incorrect credentials.")
+            email = EmailAddress.objects.filter(email=credential).first()
+            if not email:
+                errors['credential'] = _("Incorrect credentials.")
+                user = None
+            if not email.verified:
+                errors['credential'] = _("This email address has not been confirmed yet. Please confirm your email address before logging in.")
+                user = None
+            else:
+                user = email.user
         else:
-            if not User.objects.filter(username=credential).exists():
-                errors['detail'] = _("Incorrect credentials.")
+            user = User.objects.filter(username=credential).first()
+            if not user:
+                errors['credential'] = _("Incorrect credentials.")
+            if user:
+                match = user.check_password(password)
+            if match:
+                email = EmailAddress.objects.filter(user=user, email=user.email).first()
+                if not user.is_superuser and (not email or not email.verified):
+                    msg = _(
+                        'Your account is unconfirmed. '
+                        'Please confirm your email account before logging in.')
+                    raise serializers.ValidationError({'detail': [msg]}, code='authorization')
+
+        if not user.check_password(password):
+            errors['credential'] = _("Incorrect credentials.")
 
         if errors:
             raise serializers.ValidationError(errors)
+
         return data
 
 

@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- favicon example -->
-  <link rel="icon" href="https://i.goopics.net/lhw9s2.png">
+  <link rel="shortcut icon" href="data:image/x-icon" type="image/x-icon">
   <title>Demo</title>
   <!-- bulma -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
   <!-- vue.js 3 -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <!-- markdown converter to html (cdn) -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- Axios -->
@@ -62,7 +62,7 @@
   <!-- modals -->
   <!-- Login modal -->
   <div class="modal" :class="{'is-active': loginModal}">
-    <div class="modal-background" @click="loginModal=false"></div>
+    <div class="modal-background" @click="closeLoginModal"></div>
     <div class="modal-content">
       <div class="box">
         <h1 class="title">Log in</h1>
@@ -80,7 +80,7 @@
             </div>
           </div>
           <br>
-          <a href="">
+          <a href="auth/password_reset_request/">
             Forgotten password ?
           </a>
           <br>
@@ -93,9 +93,14 @@
               <button class="button is-primary" @click="login">Login</button>
             </div>
           </div>
+          <p v-if="login_errors.length">
+            <ul>
+              <li class="notification is-danger" v-for="error in login_errors"> [[ error[0] ]]</li>
+            </ul>
+          </p>
       </div>
     </div>
-    <button class="modal-close is-large" aria-label="close" @click="loginModal=false"></button>
+    <button class="modal-close is-large" aria-label="close" @click="closeLoginModal"></button>
   </div>
 
   <!-- Signup modal -->
@@ -154,6 +159,7 @@
         user: null,
         loggedIn: false,
         loginModal: false,
+        login_errors: [],
         signupModal: false,
         credential : '',
         password: '',
@@ -172,6 +178,15 @@
         this.signupModal = false
         this.initialize_signup()
       },
+      closeLoginModal() {
+        this.loginModal = false
+        this.initialize_login()
+      },
+      initialize_login() {
+        this.credential = ''
+        this.password = ''
+        this.login_errors = []
+      },
       initialize_signup() {
         this.signup_email = ''
         this.signup_username = ''
@@ -181,7 +196,7 @@
         this.signup_errors = []
       },
       login() {
-        console.log("log in with: ", this.credential)
+        this.login_errors = []
         axios({
           method: 'post',
           url: 'auth/api_login/',
@@ -194,10 +209,11 @@
           this.token = response.data.auth_token
           this.user = response.data.user
           this.loggedIn = true
+          this.loginModal = false
         }).catch((error) => {
           console.log(error)
+          this.login_errors = error.response.data
         })
-        this.loginModal = false
       },
       logout() {
         console.log("log out, token: ", this.token)
@@ -218,7 +234,8 @@
         })
       },
       signup() {
-        console.log("sign up with: ", this.signup_username, this.signup_email, this.signup_password, this.signup_password2)
+        this.signup_errors = []
+        this.signup_message = ''
         axios({
           method: 'post',
           url: 'auth/api_signup/',
