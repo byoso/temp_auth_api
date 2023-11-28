@@ -46,7 +46,9 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
 
     # local
-    '_auth_api',
+    '_users',
+    '_quick_auth',
+    'app_test',
 ]
 
 MIDDLEWARE = [
@@ -64,7 +66,7 @@ ROOT_URLCONF = '_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ['templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -131,7 +133,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-AUTH_USER_MODEL = '_auth_api.User'
+AUTH_USER_MODEL = '_users.User'
 
 
 REST_FRAMEWORK = {
@@ -140,3 +142,7 @@ REST_FRAMEWORK = {
     ],
 }
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+QUICK_AUTH = {
+    'DJANGO_MODE': 'CLASSIC',
+}

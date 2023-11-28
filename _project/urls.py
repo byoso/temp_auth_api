@@ -21,6 +21,10 @@ from django.views.generic import TemplateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', TemplateView.as_view(template_name='_auth_api/demo.html')),  # demo
-    path('', include('_auth_api.urls')),
+    # path('', TemplateView.as_view(template_name='auth/demo_spa.html')),  # demo spa
+    path('', TemplateView.as_view(template_name='auth/demo.html')),  # demo classic
+    path('', include('_quick_auth.urls')),
+
+    # just some test views
+    path('', include('app_test.urls')),
 ]

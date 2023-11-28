@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="data:image/x-icon" type="image/x-icon">
+    <title>Confirm Email</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  </head>
+  <body>
+  <section class="section">
+    <div class="container">
+      <a href="http://{{ domain }}">{{ domain }}</a>
+      <h1 class="title">
+        Confirm Email Account
+      </h1>
+      {% if display == 'info' %}
+        <p  class="subtitle">{{ username }}</p>
+        <div class="mt-2">
+          <p>Please Confirm your email account.</p>
+          <form action="" method="post">
+            {% csrf_token %}
+            <input type="submit" value="Confirm" class="button is-primary mt-2">
+          </form>
+        </div>
+      {% endif %}
+
+      {% if display == 'success' %}
+        <div class="notification is-success">
+          <p>Your email account has been confirmed, please login</p>
+        </div>
+      {% endif %}
+
+      {% if display == 'error' %}
+        <div class="notification is-danger">
+          <p>
+            This link is invalid or expired, please <a href="{{ new_one_link }}">ask for a new one</a>.
+          </p>
+        </div>
+      {% endif %}
+
+    </div>
+  </section>
+  </body>
+</html>

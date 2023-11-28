@@ -1,0 +1,57 @@
+{% extends base_template %}
+
+{% block title %}Sign Up{% endblock title %}
+
+{% block content %}
+
+<div class="columns is-centered">
+  <div class="column is-6">
+    <h1 class="title">Sign up</h1>
+    {% if display == 'info' %}
+    <form action="" method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label class="label">Username</label>
+        {{ form.username}}
+        <label for="" class="label">Email</label>
+        {{ form.email }}
+        <label class="label">Password</label>
+        {{ form.password }}
+        <label class="label">Confirm your password</label>
+        {{ form.password2 }}
+      </div>
+
+      <div class="field">
+      </div>
+      <br>
+      <div class="field">
+        <div class="control">
+          <button class="button is-primary">Sign up</button>
+        </div>
+      </div>
+      {% if form.errors %}
+      <div class="notification is-danger">
+        {% for field, error in form.errors.items %}
+            {{ error }}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </form>
+    {% endif %}
+
+    {% if display == 'success' %}
+    <div class="notification is-success">
+      <p>
+        Thank you for your registration.
+      </p>
+      <p>
+        A confirmation link has been sent to your email address, please chek your inbox to confirm your account.
+      </p>
+    </div>
+    {% endif %}
+
+  </div>
+
+</div>
+
+{% endblock content %}

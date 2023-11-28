@@ -1,0 +1,53 @@
+{% extends base_template %}
+
+{% block title %}log In{% endblock title %}
+
+{% block content %}
+
+<div class="columns is-centered">
+  <div class="column is-6">
+    <h1 class="title">Log in</h1>
+    <form action="" method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label class="label">Username or email address</label>
+        <div class="control">
+          {{ form.credential }}
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Password</label>
+        <div class="control">
+          {{ form.password }}
+        </div>
+      </div>
+      <br>
+      <a href="{% url 'password_reset_request' %}">
+        Forgotten password ?
+      </a>
+      <br>
+      <a href="{% url 'change_email' %}">
+        Change my email address / resend a confirmation email
+      </a>
+      <br>
+      <div class="field">
+        <div class="control">
+          <input type="submit" value="Login" class="button is-primary mt-2">
+        </div>
+      </div>
+      {% if form.errors %}
+      <div class="notification is-danger">
+        {% for field, error in form.errors.items %}
+            {{ error }}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </form>
+
+  </div>
+
+</div>
+
+{% endblock content %}

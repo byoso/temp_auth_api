@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="data:image/x-icon" type="image/x-icon">
+    <title>Change email</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  </head>
+  <body>
+  <section class="section">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-6">
+          <a href="http://{{ domain }}">{{ domain }}</a>
+          <h1 class="title">
+            Change Email Account / resend a confirmation email
+          </h1>
+          {% if display == 'info' %}
+            <p  class="subtitle">{{ username }}</p>
+            <div class="mt-2">
+
+              <form action="" method="post">
+                {% csrf_token %}
+                <label for="" class="label">Username</label>
+                {{ form.username }}
+                <label for="" class="label">Password</label>
+                {{ form.password }}
+                <label for="" class="label">Email</label>
+                {{ form.email }}
+                <input type="submit" value="Confirm" class="button is-primary mt-2">
+              </form>
+            </div>
+          {% endif %}
+
+          {% for message in messages %}
+            <div class="notification is-{{ message.extra_tags }} mt-2">
+              {{ message }}
+            </div>
+          {% endfor %}
+
+          {% if display == 'success' %}
+            <div class="notification is-success">
+              <p>An email has been sent to confirm your account, please check your inbox.</p>
+            </div>
+          {% endif %}
+
+          {% if display == 'success_no_confirm' %}
+            <div class="notification is-success">
+              <p>This email has already been verified, please login.</p>
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+  </body>
+</html>
